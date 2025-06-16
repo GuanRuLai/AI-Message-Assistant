@@ -208,23 +208,89 @@ class LineVoiceBot:
         try:
             logger.info("🚀 開始 AutoGen 三重 Agent 協作...")
             
-            # 使用現有的 AutoGen 語音處理器 - 同步調用
-            import asyncio
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
+            # 檢查檔案是否存在
+            if not os.path.exists(audio_path):
+                logger.error(f"❌ 音檔不存在: {audio_path}")
+                return None
             
+            # 檢查檔案大小
+            file_size = os.path.getsize(audio_path)
+            logger.info(f"📊 音檔大小: {file_size} bytes")
+            
+            if file_size == 0:
+                logger.error("❌ 音檔為空")
+                return None
+            
+            # 使用現有的 AutoGen 語音處理器 - 改為更安全的異步調用
             try:
-                result = loop.run_until_complete(self.voice_processor.process_audio(audio_path))
-            finally:
-                loop.close()
-            
-            logger.info("✅ AutoGen 處理完成")
-            return result
+                # 檢查是否已有事件循環
+                try:
+                    loop = asyncio.get_event_loop()
+                    if loop.is_running():
+                        # 如果已有運行中的循環，使用 asyncio.create_task
+                        import concurrent.futures
+                        with concurrent.futures.ThreadPoolExecutor() as executor:
+                            future = executor.submit(self._run_autogen_in_thread, audio_path)
+                            result = future.result(timeout=120)  # 2分鐘超時
+                    else:
+                        # 如果沒有運行中的循環，直接運行
+                        result = loop.run_until_complete(self.voice_processor.process_audio(audio_path))
+                except RuntimeError:
+                    # 沒有事件循環，創建新的
+                    result = self._run_autogen_in_thread(audio_path)
+                
+                logger.info("✅ AutoGen 處理完成")
+                return result
+                
+            except Exception as e:
+                logger.error(f"❌ AutoGen 異步處理失敗: {e}")
+                # 嘗試備用的簡單處理
+                return self._fallback_processing(audio_path)
             
         except Exception as e:
             logger.error(f"❌ AutoGen 處理失敗: {e}")
             logger.error(f"詳細錯誤: {traceback.format_exc()}")
             return None
+    
+    def _run_autogen_in_thread(self, audio_path: str) -> str:
+        """在新線程中運行AutoGen處理"""
+        try:
+            # 創建新的事件循環
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            
+            try:
+                result = loop.run_until_complete(self.voice_processor.process_audio(audio_path))
+                return result
+            finally:
+                loop.close()
+                
+        except Exception as e:
+            logger.error(f"❌ 線程中AutoGen處理失敗: {e}")
+            return self._fallback_processing(audio_path)
+    
+    def _fallback_processing(self, audio_path: str) -> str:
+        """備用處理方案 - 直接使用Google STT"""
+        try:
+            logger.info("🔄 使用備用處理方案...")
+            
+            # 直接使用Google STT
+            from agents.google_stt_processor import GoogleSTTProcessor
+            stt_processor = GoogleSTTProcessor()
+            
+            # 同步調用STT
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            
+            try:
+                transcription = loop.run_until_complete(stt_processor.transcribe_audio(audio_path))
+                return f"原始文字：{transcription}\n優化結果：{transcription}"
+            finally:
+                loop.close()
+                
+        except Exception as e:
+            logger.error(f"❌ 備用處理也失敗: {e}")
+            return "語音處理失敗，請重試"
     
     def _send_processed_result(self, user_id: str, result: str):
         """發送處理結果 (舊版SDK)"""
