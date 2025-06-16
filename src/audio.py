@@ -32,7 +32,7 @@ class AudioProcessor:
         try:
             logger.info(f"📥 開始下載語音檔案: {message_id}")
             
-            # 獲取語音內容
+            # 獲取語音內容 (v3 API)
             message_content = line_bot_api.get_message_content(message_id)
             
             # 創建臨時檔案

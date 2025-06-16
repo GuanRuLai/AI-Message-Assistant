@@ -6,26 +6,26 @@
 # 🔧 基礎工具
 setuptools>=68.0.0
 
-# 🤖 LINE Bot SDK (舊版本相容)
-line-bot-sdk==2.4.3
+# 🤖 LINE Bot SDK (新版本)
+line-bot-sdk==3.14.3
 
 # 🌐 Web 框架
-Flask==3.0.3
+Flask==2.3.2
 
 # 🤖 AutoGen 相關
 pyautogen==0.9
 
 # 🔑 OpenAI API
-openai==1.54.4
+openai==0.28.0
 
 # 🎤 Google Cloud Speech-to-Text
-google-cloud-speech==2.27.0
+google-cloud-texttospeech==2.15.0
 google-auth==2.23.4
 google-oauth2-tool==0.0.3
 pydub==0.25.1
 
 # 📁 環境變數管理
-python-dotenv==1.0.1
+python-dotenv==1.0.0
 
 # 📝 日誌處理
 loguru==0.7.2
@@ -46,7 +46,7 @@ psutil==6.0.0
 asyncio-throttle==1.0.2
 
 # 📊 資料庫
-tinydb==4.8.0
+tinydb==4.7.1
 
 # 🔧 其他工具
 pathlib2==2.3.7.post1 
