@@ -170,17 +170,16 @@ class AutoGenProcessor:
     async def _run_team_collaboration(self, task: str) -> str:
         """運行團隊協作（簡化版本）"""
         try:
-            # 使用更簡單的協作方式，設定最大輪數限制
+            # 使用 AutoGen 0.4 的正確協作方式
             from autogen_core import CancellationToken
             
             # 創建取消令牌
             cancellation_token = CancellationToken()
             
-            # 運行團隊協作，限制最大輪數為2（每個Agent一輪）
+            # 運行團隊協作（RoundRobin會自動讓每個Agent執行一次）
             result = await self.team.run(
                 task=task,
-                cancellation_token=cancellation_token,
-                max_turns=2  # 限制最大輪數提升速度
+                cancellation_token=cancellation_token
             )
             
             # 提取最終結果
