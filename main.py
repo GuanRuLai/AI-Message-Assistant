@@ -268,16 +268,19 @@ class AutoGenVoiceBot:
         port = int(os.getenv('PORT', 8000))
         logger.info(f"🚀 AutoGen 語音助手啟動於端口 {port}")
         
+        # Railway 需要綁定到 0.0.0.0
         self.app.run(
             host='0.0.0.0',
             port=port,
             debug=False,
-            threaded=True
+            threaded=True,
+            use_reloader=False
         )
 
 def main():
     """主程式入口"""
     try:
+        logger.info("🚀 正在啟動 AutoGen 語音助手...")
         bot = AutoGenVoiceBot()
         bot.run()
     except KeyboardInterrupt:
@@ -285,6 +288,9 @@ def main():
     except Exception as e:
         logger.error(f"❌ 啟動失敗: {e}")
         logger.error(traceback.format_exc())
+        # 確保錯誤時也能顯示基本資訊
+        import sys
+        sys.exit(1)
 
 if __name__ == "__main__":
     main() 
