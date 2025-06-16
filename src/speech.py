@@ -125,6 +125,18 @@ class SpeechProcessor:
             logger.error(f"❌ 同步語音轉文字失敗: {e}")
             return None
     
+    def speech_to_text(self, audio_path: str) -> Optional[str]:
+        """
+        語音轉文字方法（transcribe 的別名）
+        
+        Args:
+            audio_path: 音頻檔案路徑
+            
+        Returns:
+            轉錄文字，失敗時返回 None
+        """
+        return self.transcribe(audio_path)
+    
     async def transcribe_async(self, audio_path: str) -> Optional[str]:
         """
         異步語音轉文字
