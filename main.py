@@ -15,7 +15,7 @@ from flask import Flask, request, abort
 from linebot.v3 import WebhookHandler
 from linebot.v3.exceptions import InvalidSignatureError
 from linebot.v3.messaging import (
-    Configuration, ApiClient, MessagingApi,
+    Configuration, ApiClient, MessagingApi, MessagingApiBlob,
     ReplyMessageRequest, PushMessageRequest, TextMessage
 )
 from linebot.v3.webhooks import (
@@ -195,48 +195,59 @@ class AutoGenVoiceBot:
     def _process_audio_message(self, user_id: str, message_id: str) -> Optional[dict]:
         """處理語音訊息的完整流程"""
         try:
-            # 1. 下載語音檔案
+            # 1. 下載語音檔案 - 使用 MessagingApiBlob
             with ApiClient(self.configuration) as api_client:
-                line_bot_api = MessagingApi(api_client)
+                line_bot_blob_api = MessagingApiBlob(api_client)
                 audio_path = self.audio_processor.download_audio(
-                    line_bot_api, message_id, self.temp_dir
+                    line_bot_blob_api, message_id, self.temp_dir
                 )
             
             if not audio_path:
+                logger.error("❌ 語音檔案下載失敗")
                 return None
             
             # 2. 語音轉文字
-            transcription = self.speech_processor.transcribe(audio_path)
+            logger.info("🎯 開始語音轉文字...")
+            text = self.speech_processor.speech_to_text(audio_path)
             
-            if not transcription:
+            if not text:
+                logger.error("❌ 語音轉文字失敗")
+                self.audio_processor.cleanup_file(audio_path)
                 return None
             
-            # 3. AutoGen 處理
-            optimized_text = self.autogen_processor.process_text(transcription)
+            logger.info(f"📝 語音轉文字結果: {text}")
             
-            # 4. 儲存用戶互動記錄
-            self.user_storage.save_interaction(
-                user_id, transcription, optimized_text
-            )
+            # 3. AutoGen 處理
+            logger.info("🤖 開始 AutoGen 處理...")
+            autogen_result = self.autogen_processor.process_text(text)
+            
+            # 4. 儲存用戶記錄
+            self.user_storage.save_interaction(user_id, {
+                'input_text': text,
+                'output_text': autogen_result,
+                'timestamp': datetime.now().isoformat(),
+                'type': 'voice'
+            })
             
             # 5. 清理臨時檔案
             self.audio_processor.cleanup_file(audio_path)
             
             return {
-                'original': transcription,
-                'optimized': optimized_text
+                'original_text': text,
+                'processed_text': autogen_result,
+                'timestamp': datetime.now().isoformat()
             }
             
         except Exception as e:
-            logger.error(f"❌ 處理語音訊息失敗: {e}")
+            logger.error(f"❌ 處理語音訊息錯誤: {e}")
             return None
     
     def _send_result(self, user_id: str, result: dict):
         """發送處理結果"""
         try:
             response_text = "✨ 語音轉文字完成\n\n"
-            response_text += f"🎯 原始文字：\n{result['original']}\n\n"
-            response_text += f"📝 AI 優化結果：\n{result['optimized']}"
+            response_text += f"🎯 原始文字：\n{result['original_text']}\n\n"
+            response_text += f"📝 AI 優化結果：\n{result['processed_text']}"
             
             with ApiClient(self.configuration) as api_client:
                 line_bot_api = MessagingApi(api_client)
@@ -307,12 +318,12 @@ class AutoGenVoiceBot:
     
     def run(self):
         """啟動 Flask 應用程式"""
-        port = int(os.environ.get('PORT', 8000))  # Replit 使用動態端口
+        port = int(os.environ.get('PORT', 8000))  # Railway 使用動態端口
         host = '0.0.0.0'  # 允許外部訪問
         
         logger.info(f"🚀 啟動 AutoGen 0.4 語音助手服務於 {host}:{port}")
         
-        # Replit 環境使用
+        # Railway 環境使用
         self.app.run(
             host=host,
             port=port,

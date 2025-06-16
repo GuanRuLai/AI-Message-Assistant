@@ -24,12 +24,12 @@ class AudioProcessor:
         self.supported_formats = ['.m4a', '.mp3', '.wav', '.ogg', '.aac']
         logger.info("🎵 音訊處理器已初始化")
     
-    def download_audio(self, messaging_api, message_id: str, output_dir: Path) -> Optional[str]:
+    def download_audio(self, messaging_api_blob, message_id: str, output_dir: Path) -> Optional[str]:
         """
         下載 LINE 語音訊息
         
         Args:
-            messaging_api: LINE Bot MessagingApi 實例 (v3)
+            messaging_api_blob: LINE Bot MessagingApiBlob 實例 (v3)
             message_id: 訊息 ID
             output_dir: 輸出目錄
             
@@ -39,8 +39,8 @@ class AudioProcessor:
         try:
             logger.info(f"🔽 開始下載語音檔案: {message_id}")
             
-            # 使用 LINE Bot SDK v3 API 獲取音訊內容
-            message_content = messaging_api.get_message_content(message_id)
+            # 使用 LINE Bot SDK v3 MessagingApiBlob API 獲取音訊內容
+            message_content = messaging_api_blob.get_message_content(message_id)
             
             # 創建輸出目錄
             output_dir.mkdir(exist_ok=True)
