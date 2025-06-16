@@ -1,0 +1,71 @@
+# ===========================================
+# 🤖 AutoGen 語音助手 - 核心依賴 (純 API 版本)
+# ===========================================
+
+# 🎤 語音處理核心
+openai>=1.12.0
+python-dotenv>=1.0.0
+loguru>=0.7.0
+
+# AutoGen 相關
+autogen>=0.2.0
+pyautogen>=0.2.0
+
+# 🎧 即時語音監聽
+pyaudio>=0.2.11
+webrtcvad>=2.0.10
+numpy>=1.24.0
+
+# GUI 和剪貼板
+pyperclip>=1.8.2
+
+# 其他工具
+requests>=2.31.0
+
+# 🛠️ 系統工具
+psutil>=5.9.0
+
+# 🤖 LINE Bot 語音助手 - 依賴套件
+
+# LINE Bot SDK
+line-bot-sdk==3.12.0
+
+# Web 框架
+Flask==3.0.3
+
+# AutoGen 相關
+autogen-agentchat==0.4.0.dev6
+autogen-ext[openai]==0.4.0.dev6
+
+# OpenAI API
+openai==1.54.4
+
+# 語音處理 (Google Cloud Speech-to-Text)
+google-cloud-speech==2.24.1
+
+# 環境變數管理
+python-dotenv==1.0.1
+
+# 日誌處理
+loguru==0.7.2
+
+# 異步處理
+asyncio-throttle==1.0.2
+
+# 檔案處理
+pathlib2==2.3.7
+
+# HTTP 請求
+requests==2.32.3
+
+# 音檔處理
+pydub==0.25.1
+
+# 簡繁轉換（備用方案）
+opencc-python-reimplemented==0.1.7
+
+# 科學計算
+numpy==1.24.3
+
+# 系統工具
+psutil==6.0.0 
