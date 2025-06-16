@@ -1,6 +1,6 @@
 """
-🤖 AutoGen 語音助手 - 主程式
-參考 AI-English-Tutor-Linebot 專案架構
+🤖 AutoGen 0.4 語音助手 - 主程式
+支援最新的 AutoGen AgentChat 和 LINE Bot SDK v3
 """
 
 import os
@@ -12,11 +12,14 @@ from typing import Optional
 from pathlib import Path
 
 from flask import Flask, request, abort
-from linebot import LineBotApi, WebhookHandler
-from linebot.exceptions import InvalidSignatureError
-from linebot.models import (
-    MessageEvent, AudioMessage, TextMessage, 
-    TextSendMessage
+from linebot.v3 import WebhookHandler
+from linebot.v3.exceptions import InvalidSignatureError
+from linebot.v3.messaging import (
+    Configuration, ApiClient, MessagingApi,
+    ReplyMessageRequest, PushMessageRequest, TextMessage
+)
+from linebot.v3.webhooks import (
+    MessageEvent, AudioMessageContent, TextMessageContent
 )
 from dotenv import load_dotenv
 from loguru import logger
@@ -42,8 +45,8 @@ class AutoGenVoiceBot:
         if not self.channel_secret or not self.channel_access_token:
             raise ValueError("LINE Channel Secret 或 Access Token 未設定")
         
-        # 初始化 LINE Bot API
-        self.line_bot_api = LineBotApi(self.channel_access_token)
+        # 初始化 LINE Bot v3 API
+        self.configuration = Configuration(access_token=self.channel_access_token)
         self.handler = WebhookHandler(self.channel_secret)
         
         # 初始化處理器
@@ -60,7 +63,7 @@ class AutoGenVoiceBot:
         self._setup_routes()
         self._setup_handlers()
         
-        logger.info("🤖 AutoGen 語音助手已啟動")
+        logger.info("🤖 AutoGen 0.4 語音助手已啟動")
     
     def _setup_routes(self):
         """設定 Flask 路由"""
@@ -89,26 +92,27 @@ class AutoGenVoiceBot:
             return {
                 "status": "healthy",
                 "timestamp": datetime.now().isoformat(),
-                "service": "AutoGen 語音助手"
+                "service": "AutoGen 0.4 語音助手"
             }, 200
         
         @self.app.route('/', methods=['GET'])
         def home():
             """首頁"""
             return {
-                "message": "🤖 AutoGen 語音助手已啟動",
+                "message": "🤖 AutoGen 0.4 語音助手已啟動",
                 "features": [
                     "語音轉文字",
-                    "AutoGen 三重 Agent 優化",
+                    "AutoGen 0.4 Agent 協作",
                     "繁體中文輸出",
                     "用戶學習記錄"
-                ]
+                ],
+                "version": "2024.1"
             }, 200
     
     def _setup_handlers(self):
         """設定 LINE 訊息處理器"""
         
-        @self.handler.add(MessageEvent, message=AudioMessage)
+        @self.handler.add(MessageEvent, message=AudioMessageContent)
         def handle_audio_message(event):
             """處理語音訊息"""
             logger.info("🎤 收到語音訊息，開始處理...")
@@ -118,10 +122,14 @@ class AutoGenVoiceBot:
                 message_id = event.message.id
                 
                 # 1. 回覆處理中訊息
-                self.line_bot_api.reply_message(
-                    event.reply_token,
-                    TextSendMessage(text="🎧 正在處理您的語音訊息，請稍候...")
-                )
+                with ApiClient(self.configuration) as api_client:
+                    line_bot_api = MessagingApi(api_client)
+                    line_bot_api.reply_message(
+                        ReplyMessageRequest(
+                            reply_token=event.reply_token,
+                            messages=[TextMessage(text="🎧 正在處理您的語音訊息，請稍候...")]
+                        )
+                    )
                 
                 # 2. 下載並處理語音
                 result = self._process_audio_message(user_id, message_id)
@@ -136,7 +144,7 @@ class AutoGenVoiceBot:
                 logger.error(f"❌ 處理語音訊息錯誤: {e}")
                 self._send_error(event.source.user_id, "處理過程中發生錯誤")
         
-        @self.handler.add(MessageEvent, message=TextMessage)
+        @self.handler.add(MessageEvent, message=TextMessageContent)
         def handle_text_message(event):
             """處理文字訊息"""
             text = event.message.text.strip()
@@ -145,36 +153,47 @@ class AutoGenVoiceBot:
             logger.info(f"📝 收到文字訊息: {text}")
             
             try:
-                if text.lower() in ['help', '幫助', '說明']:
-                    help_text = self._get_help_message()
-                    self.line_bot_api.reply_message(
-                        event.reply_token,
-                        TextSendMessage(text=help_text)
-                    )
-                elif text.lower() in ['status', '狀態']:
-                    status_text = self._get_status_message(user_id)
-                    self.line_bot_api.reply_message(
-                        event.reply_token,
-                        TextSendMessage(text=status_text)
-                    )
-                else:
-                    # 一般文字訊息也可以用AutoGen處理
-                    result = self.autogen_processor.process_text(text)
-                    self.line_bot_api.reply_message(
-                        event.reply_token,
-                        TextSendMessage(text=f"📝 文字優化結果：\n{result}")
-                    )
+                with ApiClient(self.configuration) as api_client:
+                    line_bot_api = MessagingApi(api_client)
+                    
+                    if text.lower() in ['help', '幫助', '說明']:
+                        help_text = self._get_help_message()
+                        line_bot_api.reply_message(
+                            ReplyMessageRequest(
+                                reply_token=event.reply_token,
+                                messages=[TextMessage(text=help_text)]
+                            )
+                        )
+                    elif text.lower() in ['status', '狀態']:
+                        status_text = self._get_status_message(user_id)
+                        line_bot_api.reply_message(
+                            ReplyMessageRequest(
+                                reply_token=event.reply_token,
+                                messages=[TextMessage(text=status_text)]
+                            )
+                        )
+                    else:
+                        # 一般文字訊息用AutoGen處理
+                        result = self.autogen_processor.process_text(text)
+                        line_bot_api.reply_message(
+                            ReplyMessageRequest(
+                                reply_token=event.reply_token,
+                                messages=[TextMessage(text=f"📝 文字優化結果：\n{result}")]
+                            )
+                        )
                 
             except Exception as e:
                 logger.error(f"❌ 處理文字訊息錯誤: {e}")
     
-    def _process_audio_message(self, user_id: str, message_id: str) -> Optional[str]:
+    def _process_audio_message(self, user_id: str, message_id: str) -> Optional[dict]:
         """處理語音訊息的完整流程"""
         try:
             # 1. 下載語音檔案
-            audio_path = self.audio_processor.download_audio(
-                self.line_bot_api, message_id, self.temp_dir
-            )
+            with ApiClient(self.configuration) as api_client:
+                line_bot_api = MessagingApi(api_client)
+                audio_path = self.audio_processor.download_audio(
+                    line_bot_api, message_id, self.temp_dir
+                )
             
             if not audio_path:
                 return None
@@ -212,10 +231,14 @@ class AutoGenVoiceBot:
             response_text += f"🎯 原始文字：\n{result['original']}\n\n"
             response_text += f"📝 AI 優化結果：\n{result['optimized']}"
             
-            self.line_bot_api.push_message(
-                user_id,
-                TextSendMessage(text=response_text)
-            )
+            with ApiClient(self.configuration) as api_client:
+                line_bot_api = MessagingApi(api_client)
+                line_bot_api.push_message(
+                    PushMessageRequest(
+                        to=user_id,
+                        messages=[TextMessage(text=response_text)]
+                    )
+                )
             
         except Exception as e:
             logger.error(f"❌ 發送結果失敗: {e}")
@@ -223,20 +246,24 @@ class AutoGenVoiceBot:
     def _send_error(self, user_id: str, error_msg: str):
         """發送錯誤訊息"""
         try:
-            self.line_bot_api.push_message(
-                user_id,
-                TextSendMessage(text=f"❌ {error_msg}")
-            )
+            with ApiClient(self.configuration) as api_client:
+                line_bot_api = MessagingApi(api_client)
+                line_bot_api.push_message(
+                    PushMessageRequest(
+                        to=user_id,
+                        messages=[TextMessage(text=f"❌ {error_msg}")]
+                    )
+                )
         except Exception as e:
             logger.error(f"❌ 發送錯誤訊息失敗: {e}")
     
     def _get_help_message(self) -> str:
         """獲取幫助訊息"""
-        return """🎤 AutoGen 語音助手使用說明
+        return """🎤 AutoGen 0.4 語音助手使用說明
 
 ✨ 功能：
 • 語音轉文字
-• AutoGen 三重 Agent 優化  
+• AutoGen 0.4 Agent 協作優化  
 • 繁體中文輸出
 • 學習記錄追蹤
 
@@ -248,7 +275,13 @@ class AutoGenVoiceBot:
 
 ⚡ 指令：
 • help/幫助 - 顯示使用說明
-• status/狀態 - 查看使用統計"""
+• status/狀態 - 查看使用統計
+
+🔧 技術特色：
+• 採用最新 AutoGen 0.4 架構
+• LINE Bot SDK v3 支援
+• Google Cloud Speech-to-Text
+• 智能文字優化"""
     
     def _get_status_message(self, user_id: str) -> str:
         """獲取用戶狀態訊息"""
@@ -259,7 +292,9 @@ class AutoGenVoiceBot:
 🎤 語音處理次數: {stats.get('audio_count', 0)}
 📝 文字處理次數: {stats.get('text_count', 0)}
 📅 首次使用: {stats.get('first_use', '未知')}
-🕒 最後使用: {stats.get('last_use', '未知')}"""
+🕒 最後使用: {stats.get('last_use', '未知')}
+
+🚀 版本：AutoGen 0.4"""
         except:
             return "📊 暫無使用記錄"
     
@@ -268,7 +303,7 @@ class AutoGenVoiceBot:
         port = int(os.environ.get('PORT', 8000))  # Railway 使用動態端口
         host = '0.0.0.0'  # 允許外部訪問
         
-        logger.info(f"🚀 啟動 AutoGen 語音助手服務於 {host}:{port}")
+        logger.info(f"🚀 啟動 AutoGen 0.4 語音助手服務於 {host}:{port}")
         
         # 生產環境使用
         self.app.run(
