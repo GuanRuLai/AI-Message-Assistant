@@ -14,8 +14,8 @@ Flask==3.0.3
 # 🤖 AutoGen 相關 (使用新的AG2包名)
 ag2[openai]==0.4.1
 
-# 🔑 OpenAI API
-openai==1.54.4
+# 🔑 OpenAI API (兼容AG2的版本)
+openai>=1.3.0,<2.0.0
 
 # 🎤 Google Cloud Speech-to-Text
 google-cloud-speech==2.24.1

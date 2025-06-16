@@ -26,11 +26,10 @@ class AutoGenVoiceProcessor:
         self.group_chat = None
         self.group_chat_manager = None
         
-        # 配置
+        # 配置 - 簡化配置避免參數衝突
         self.openai_config = {
             "model": os.getenv('AUTOGEN_MODEL', 'gpt-4o'),
-            "api_key": os.getenv('OPENAI_API_KEY'),
-            "temperature": float(os.getenv('AUTOGEN_TEMPERATURE', '0.7'))
+            "api_key": os.getenv('OPENAI_API_KEY')
         }
         
         self._initialize_components()
