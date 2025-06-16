@@ -96,6 +96,7 @@ temp_audio/
 uploads/
 downloads/
 cache/
+files/
 
 # 日誌檔案
 logs/
