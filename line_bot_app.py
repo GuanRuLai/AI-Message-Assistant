@@ -4,7 +4,6 @@
 """
 
 import os
-import asyncio
 import tempfile
 import traceback
 from datetime import datetime
@@ -17,7 +16,7 @@ from linebot.v3.exceptions import InvalidSignatureError
 from linebot.v3.webhooks import MessageEvent, AudioMessageContent
 from linebot.v3.messaging import (
     Configuration, ApiClient, MessagingApi,
-    TextMessage, ReplyMessageRequest
+    TextMessage, ReplyMessageRequest, PushMessageRequest
 )
 from dotenv import load_dotenv
 from loguru import logger
@@ -69,6 +68,9 @@ class LineVoiceBot:
             signature = request.headers.get('X-Line-Signature', '')
             body = request.get_data(as_text=True)
             
+            logger.info(f"📨 收到 Webhook 請求")
+            logger.info(f"🔐 簽名: {signature[:20]}...")
+            
             try:
                 self.handler.handle(body, signature)
                 return 'OK', 200
@@ -77,6 +79,7 @@ class LineVoiceBot:
                 abort(400)
             except Exception as e:
                 logger.error(f"❌ Webhook 處理錯誤: {e}")
+                logger.error(f"詳細錯誤: {traceback.format_exc()}")
                 return 'Internal Server Error', 500
         
         @self.app.route('/health', methods=['GET'])
@@ -107,43 +110,44 @@ class LineVoiceBot:
         
         @self.handler.add(MessageEvent, message=AudioMessageContent)
         def handle_audio_message(event):
-            """處理語音訊息"""
-            asyncio.run(self._process_audio_message(event))
-    
-    async def _process_audio_message(self, event):
-        """處理語音訊息的異步方法"""
-        try:
+            """處理語音訊息 - 同步版本"""
             logger.info("🎤 收到語音訊息，開始處理...")
             
-            # 1. 下載語音檔案
-            audio_path = await self._download_audio(event.message.id)
-            if not audio_path:
-                await self._reply_error(event.reply_token, "語音檔案下載失敗")
-                return
-            
-            # 2. 發送處理中訊息
-            await self._reply_message(event.reply_token, "🎧 正在處理您的語音訊息，請稍候...")
-            
-            # 3. 使用 AutoGen 處理語音
-            result = await self._process_with_autogen(audio_path)
-            
-            # 4. 解析並回傳結果
-            if result:
-                await self._send_processed_result(event.source.user_id, result)
-            else:
-                await self._send_error_message(event.source.user_id, "語音處理失敗，請重試")
-            
-            # 5. 清理臨時檔案
-            self._cleanup_temp_file(audio_path)
-            
-        except Exception as e:
-            logger.error(f"❌ 處理語音訊息時發生錯誤: {e}")
-            logger.error(f"詳細錯誤: {traceback.format_exc()}")
-            await self._reply_error(event.reply_token, "處理過程中發生錯誤，請重試")
+            try:
+                # 1. 先回覆處理中訊息
+                self._reply_message(event.reply_token, "🎧 正在處理您的語音訊息，請稍候...")
+                
+                # 2. 下載語音檔案
+                audio_path = self._download_audio_sync(event.message.id)
+                if not audio_path:
+                    self._send_error_message_sync(event.source.user_id, "語音檔案下載失敗")
+                    return
+                
+                # 3. 使用 AutoGen 處理語音
+                result = self._process_with_autogen_sync(audio_path)
+                
+                # 4. 解析並回傳結果
+                if result:
+                    self._send_processed_result_sync(event.source.user_id, result)
+                else:
+                    self._send_error_message_sync(event.source.user_id, "語音處理失敗，請重試")
+                
+                # 5. 清理臨時檔案
+                self._cleanup_temp_file(audio_path)
+                
+            except Exception as e:
+                logger.error(f"❌ 處理語音訊息時發生錯誤: {e}")
+                logger.error(f"詳細錯誤: {traceback.format_exc()}")
+                try:
+                    self._send_error_message_sync(event.source.user_id, "處理過程中發生錯誤，請重試")
+                except:
+                    logger.error("❌ 無法發送錯誤訊息")
     
-    async def _download_audio(self, message_id: str) -> Optional[str]:
-        """下載語音檔案"""
+    def _download_audio_sync(self, message_id: str) -> Optional[str]:
+        """同步下載語音檔案"""
         try:
+            logger.info(f"📥 開始下載語音檔案: {message_id}")
+            
             # 使用 LINE Bot API 取得語音內容
             message_content = self.line_bot_api.get_message_content(message_id)
             
@@ -162,24 +166,33 @@ class LineVoiceBot:
             
         except Exception as e:
             logger.error(f"❌ 下載語音檔案失敗: {e}")
+            logger.error(f"詳細錯誤: {traceback.format_exc()}")
             return None
     
-    async def _process_with_autogen(self, audio_path: str) -> Optional[str]:
-        """使用 AutoGen 處理語音檔案"""
+    def _process_with_autogen_sync(self, audio_path: str) -> Optional[str]:
+        """同步使用 AutoGen 處理語音檔案"""
         try:
             logger.info("🚀 開始 AutoGen 三重 Agent 協作...")
             
-            # 使用現有的 AutoGen 語音處理器
-            result = await self.voice_processor.process_audio(audio_path)
+            # 使用現有的 AutoGen 語音處理器 - 同步調用
+            import asyncio
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            
+            try:
+                result = loop.run_until_complete(self.voice_processor.process_audio(audio_path))
+            finally:
+                loop.close()
             
             logger.info("✅ AutoGen 處理完成")
             return result
             
         except Exception as e:
             logger.error(f"❌ AutoGen 處理失敗: {e}")
+            logger.error(f"詳細錯誤: {traceback.format_exc()}")
             return None
     
-    async def _reply_message(self, reply_token: str, text: str):
+    def _reply_message(self, reply_token: str, text: str):
         """回覆訊息"""
         try:
             message = TextMessage(text=text)
@@ -188,12 +201,13 @@ class LineVoiceBot:
                 messages=[message]
             )
             self.line_bot_api.reply_message(request_obj)
+            logger.info(f"✅ 已回覆訊息: {text[:50]}...")
             
         except Exception as e:
             logger.error(f"❌ 回覆訊息失敗: {e}")
     
-    async def _send_processed_result(self, user_id: str, result: str):
-        """發送處理結果"""
+    def _send_processed_result_sync(self, user_id: str, result: str):
+        """同步發送處理結果"""
         try:
             # 解析 AutoGen 結果
             original_text = ""
@@ -220,32 +234,33 @@ class LineVoiceBot:
             
             # 推送訊息給用戶
             message = TextMessage(text=response_text)
-            self.line_bot_api.push_message(
+            request_obj = PushMessageRequest(
                 to=user_id,
                 messages=[message]
             )
+            self.line_bot_api.push_message(request_obj)
             
             logger.info(f"✅ 已發送處理結果給用戶: {user_id}")
             
         except Exception as e:
             logger.error(f"❌ 發送處理結果失敗: {e}")
+            logger.error(f"詳細錯誤: {traceback.format_exc()}")
     
-    async def _send_error_message(self, user_id: str, error_msg: str):
-        """發送錯誤訊息"""
+    def _send_error_message_sync(self, user_id: str, error_msg: str):
+        """同步發送錯誤訊息"""
         try:
             response_text = f"❌ {error_msg}\n\n請重新發送語音訊息，或聯絡客服協助。"
             message = TextMessage(text=response_text)
-            self.line_bot_api.push_message(
+            request_obj = PushMessageRequest(
                 to=user_id,
                 messages=[message]
             )
+            self.line_bot_api.push_message(request_obj)
+            
+            logger.info(f"✅ 已發送錯誤訊息給用戶: {user_id}")
             
         except Exception as e:
             logger.error(f"❌ 發送錯誤訊息失敗: {e}")
-    
-    async def _reply_error(self, reply_token: str, error_msg: str):
-        """回覆錯誤訊息"""
-        await self._reply_message(reply_token, f"❌ {error_msg}")
     
     def _cleanup_temp_file(self, file_path: str):
         """清理臨時檔案"""
@@ -277,7 +292,7 @@ def main():
         bot.run()
         
     except KeyboardInterrupt:
-        logger.info("🛑 用戶中斷，正在關閉服務...")
+        logger.info("👋 LINE Bot 已停止")
     except Exception as e:
         logger.error(f"❌ 啟動失敗: {e}")
         logger.error(f"詳細錯誤: {traceback.format_exc()}")

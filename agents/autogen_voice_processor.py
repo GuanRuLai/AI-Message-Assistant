@@ -13,7 +13,7 @@ from loguru import logger
 from .google_stt_processor import GoogleSTTProcessor
 
 # AutoGen 相關 - 使用新的AG2包名
-from autogen import AssistantAgent, UserProxyAgent, GroupChat, GroupChatManager
+from ag2 import AssistantAgent, UserProxyAgent, GroupChat, GroupChatManager
 
 class AutoGenVoiceProcessor:
     def __init__(self):
