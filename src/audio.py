@@ -48,10 +48,9 @@ class AudioProcessor:
             # 生成檔案路徑（預設為 .m4a 格式）
             audio_path = output_dir / f"audio_{message_id}.m4a"
             
-            # 寫入音訊檔案
+            # 寫入音訊檔案 - LINE Bot SDK v3 直接返回 bytes
             with open(audio_path, 'wb') as f:
-                for chunk in message_content.iter_content():
-                    f.write(chunk)
+                f.write(message_content)
             
             logger.info(f"✅ 語音檔案下載完成: {audio_path}")
             
