@@ -30,20 +30,34 @@ from src.speech import SpeechProcessor
 from src.models import AutoGenProcessor
 from src.storage import UserStorage
 
-# 載入環境變數
-load_dotenv('config.env')
+# 載入環境變數 - 優先使用 Railway 平台環境變數
+load_dotenv('config.env', override=False)  # 不覆蓋已存在的環境變數
 
 class AutoGenVoiceBot:
     def __init__(self):
         """初始化 AutoGen 語音助手"""
         self.app = Flask(__name__)
         
-        # LINE Bot 配置
+        # LINE Bot 配置 - 新增除錯資訊
         self.channel_secret = os.getenv('LINE_CHANNEL_SECRET')
         self.channel_access_token = os.getenv('LINE_CHANNEL_ACCESS_TOKEN')
         
+        # 除錯：顯示環境變數狀態
+        logger.info(f"🔍 環境變數檢查:")
+        logger.info(f"   LINE_CHANNEL_SECRET: {'已設定' if self.channel_secret else '未設定'}")
+        logger.info(f"   LINE_CHANNEL_ACCESS_TOKEN: {'已設定' if self.channel_access_token else '未設定'}")
+        
         if not self.channel_secret or not self.channel_access_token:
-            raise ValueError("LINE Channel Secret 或 Access Token 未設定")
+            # 提供更詳細的錯誤資訊
+            missing = []
+            if not self.channel_secret:
+                missing.append("LINE_CHANNEL_SECRET")
+            if not self.channel_access_token:
+                missing.append("LINE_CHANNEL_ACCESS_TOKEN")
+            
+            error_msg = f"缺少環境變數: {', '.join(missing)}"
+            logger.error(f"❌ {error_msg}")
+            raise ValueError(error_msg)
         
         # 初始化 LINE Bot v3 API
         self.configuration = Configuration(access_token=self.channel_access_token)
@@ -95,6 +109,18 @@ class AutoGenVoiceBot:
                 "service": "AutoGen 0.4 語音助手"
             }, 200
         
+        @self.app.route('/env-check', methods=['GET'])
+        def env_check():
+            """環境變數檢查端點"""
+            env_status = {
+                "LINE_CHANNEL_SECRET": "已設定" if os.getenv('LINE_CHANNEL_SECRET') else "未設定",
+                "LINE_CHANNEL_ACCESS_TOKEN": "已設定" if os.getenv('LINE_CHANNEL_ACCESS_TOKEN') else "未設定",
+                "OPENAI_API_KEY": "已設定" if os.getenv('OPENAI_API_KEY') else "未設定",
+                "GOOGLE_APPLICATION_CREDENTIALS_JSON": "已設定" if os.getenv('GOOGLE_APPLICATION_CREDENTIALS_JSON') else "未設定",
+                "timestamp": datetime.now().isoformat()
+            }
+            return env_status, 200
+        
         @self.app.route('/', methods=['GET'])
         def home():
             """首頁"""
@@ -110,6 +136,7 @@ class AutoGenVoiceBot:
                 "endpoints": {
                     "webhook": "/webhook",
                     "health": "/health",
+                    "env-check": "/env-check",
                     "home": "/"
                 },
                 "version": "2024.1",
