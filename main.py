@@ -29,7 +29,6 @@ from loguru import logger
 from src.audio import AudioProcessor
 from src.speech import SpeechProcessor
 from src.models import AutoGenProcessor
-from src.storage import UserStorage
 
 # 載入環境變數
 load_dotenv('config.env')
@@ -68,7 +67,6 @@ class AutoGenVoiceBot:
         self.audio_processor = AudioProcessor()
         self.speech_processor = SpeechProcessor()
         self.autogen_processor = AutoGenProcessor()
-        self.user_storage = UserStorage()
         
         # 臨時檔案目錄
         self.temp_dir = Path('files')
@@ -132,7 +130,7 @@ class AutoGenVoiceBot:
                     "語音轉文字",
                     "AutoGen 0.4 Agent 協作",
                     "繁體中文輸出",
-                    "用戶學習記錄"
+                    "無狀態設計，保護隱私"
                 ],
                 "endpoints": {
                     "webhook": "/webhook",
@@ -249,15 +247,7 @@ class AutoGenVoiceBot:
             logger.info("🤖 開始 AutoGen 處理...")
             autogen_result = self.autogen_processor.process_text(text)
             
-            # 4. 儲存用戶記錄
-            self.user_storage.save_interaction(user_id, {
-                'input_text': text,
-                'output_text': autogen_result,
-                'timestamp': datetime.now().isoformat(),
-                'type': 'voice'
-            })
-            
-            # 5. 清理臨時檔案
+            # 4. 清理臨時檔案
             self.audio_processor.cleanup_file(audio_path)
             
             return {
@@ -311,38 +301,36 @@ class AutoGenVoiceBot:
 • 語音轉文字
 • AutoGen 0.4 Agent 協作優化  
 • 繁體中文輸出
-• 學習記錄追蹤
+• 即時處理，無記錄儲存
 
 📱 使用方法：
 1. 發送語音訊息進行轉文字
 2. 發送文字訊息進行優化
-3. 輸入「狀態」查看使用記錄
+3. 輸入「狀態」查看系統狀態
 4. 輸入「幫助」查看此說明
 
 ⚡ 指令：
 • help/幫助 - 顯示使用說明
-• status/狀態 - 查看使用統計
+• status/狀態 - 查看系統狀態
 
 🔧 技術特色：
 • 採用最新 AutoGen 0.4 架構
 • LINE Bot SDK v3 支援
 • Google Cloud Speech-to-Text
-• 智能文字優化"""
+• 智能文字優化
+• 無狀態設計，保護隱私"""
     
     def _get_status_message(self, user_id: str) -> str:
-        """獲取用戶狀態訊息"""
-        try:
-            stats = self.user_storage.get_user_stats(user_id)
-            return f"""📊 您的使用統計
+        """獲取系統狀態訊息"""
+        return f"""📊 系統狀態
 
-🎤 語音處理次數: {stats.get('audio_count', 0)}
-📝 文字處理次數: {stats.get('text_count', 0)}
-📅 首次使用: {stats.get('first_use', '未知')}
-🕒 最後使用: {stats.get('last_use', '未知')}
+🤖 AutoGen 0.4 語音助手
+✅ 系統運行正常
+🎤 語音轉文字：可用
+📝 文字優化：可用
+🕒 當前時間：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 
-🚀 版本：AutoGen 0.4"""
-        except:
-            return "📊 暫無使用記錄"
+🔧 版本：AutoGen 0.4"""
     
     def run(self):
         """啟動 Flask 應用程式 - 本地開發模式"""
