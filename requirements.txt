@@ -5,8 +5,8 @@
 # 🔧 解決Python 3.12+ distutils問題
 setuptools>=68.0.0
 
-# 🤖 LINE Bot SDK
-line-bot-sdk==3.12.0
+# 🤖 LINE Bot SDK (改為舊版本，與參考專案相同)
+line-bot-sdk==2.4.0
 
 # 🌐 Web 框架
 Flask==3.0.3
@@ -15,10 +15,10 @@ Flask==3.0.3
 pyautogen==0.9
 
 # 🔑 OpenAI API (兼容AG2的版本)
-openai>=1.3.0,<2.0.0
+openai==1.54.4
 
 # 🎤 Google Cloud Speech-to-Text
-google-cloud-speech==2.24.1
+google-cloud-speech==2.27.0
 
 # 📁 環境變數管理
 python-dotenv==1.0.1
@@ -42,4 +42,20 @@ numpy==1.24.3
 psutil==6.0.0
 
 # 🕒 異步處理
-asyncio-throttle==1.0.2 
+asyncio-throttle==1.0.2
+
+# 🧠 AI 和機器學習
+pyautogen==0.9
+
+# 🌐 Web 框架
+Flask==3.0.3
+
+# 📊 數據處理
+python-dotenv==1.0.1
+
+# 📝 日誌記錄
+loguru==0.7.2
+
+# 🔧 其他工具
+requests==2.32.3
+pathlib2==2.3.7.post1 

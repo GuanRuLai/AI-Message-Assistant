@@ -1,6 +1,6 @@
 """
-🤖 LINE Bot 語音轉文字助手
-功能：接收語音訊息 → AutoGen 三重 Agent 處理 → 回傳優化繁體中文
+🤖 LINE Bot 語音轉文字助手 (使用舊版SDK)
+參考成功專案架構重新實作
 """
 
 import os
@@ -11,12 +11,11 @@ from typing import Optional
 from pathlib import Path
 
 from flask import Flask, request, abort
-from linebot.v3 import WebhookHandler
-from linebot.v3.exceptions import InvalidSignatureError
-from linebot.v3.webhooks import MessageEvent, AudioMessageContent, TextMessageContent
-from linebot.v3.messaging import (
-    Configuration, ApiClient, MessagingApi,
-    TextMessage, ReplyMessageRequest, PushMessageRequest
+from linebot import LineBotApi, WebhookHandler
+from linebot.exceptions import InvalidSignatureError
+from linebot.models import (
+    MessageEvent, AudioMessage, TextMessage, 
+    TextSendMessage
 )
 from dotenv import load_dotenv
 from loguru import logger
@@ -39,10 +38,8 @@ class LineVoiceBot:
         if not self.channel_secret or not self.channel_access_token:
             raise ValueError("LINE Channel Secret 或 Access Token 未設定")
         
-        # 初始化 LINE Bot API
-        configuration = Configuration(access_token=self.channel_access_token)
-        self.api_client = ApiClient(configuration)
-        self.line_bot_api = MessagingApi(self.api_client)
+        # 初始化 LINE Bot API (舊版)
+        self.line_bot_api = LineBotApi(self.channel_access_token)
         self.handler = WebhookHandler(self.channel_secret)
         
         # 初始化 AutoGen 語音處理器
@@ -56,7 +53,7 @@ class LineVoiceBot:
         self._setup_routes()
         self._setup_handlers()
         
-        logger.info("🤖 LINE Bot 語音助手已啟動")
+        logger.info("🤖 LINE Bot 語音助手已啟動 (舊版SDK)")
         logger.info(f"📁 臨時音檔目錄: {self.temp_audio_dir}")
     
     def _setup_routes(self):
@@ -70,7 +67,7 @@ class LineVoiceBot:
             
             logger.info(f"📨 收到 Webhook 請求")
             logger.info(f"🔐 簽名: {signature[:20]}...")
-            logger.info(f"📄 請求內容: {body[:200]}...")  # 添加請求內容日誌
+            logger.info(f"📄 請求內容: {body[:200]}...")
             
             try:
                 self.handler.handle(body, signature)
@@ -89,14 +86,14 @@ class LineVoiceBot:
             return {
                 "status": "healthy",
                 "timestamp": datetime.now().isoformat(),
-                "service": "LINE Bot 語音助手"
+                "service": "LINE Bot 語音助手 (舊版SDK)"
             }, 200
         
         @self.app.route('/', methods=['GET'])
         def home():
             """首頁"""
             return {
-                "message": "🤖 LINE Bot 語音助手已啟動",
+                "message": "🤖 LINE Bot 語音助手已啟動 (舊版SDK)",
                 "features": [
                     "語音轉文字",
                     "AutoGen 三重 Agent 優化",
@@ -107,11 +104,11 @@ class LineVoiceBot:
             }, 200
     
     def _setup_handlers(self):
-        """設定 LINE 訊息處理器"""
+        """設定 LINE 訊息處理器 (舊版SDK)"""
         
-        @self.handler.add(MessageEvent, message=AudioMessageContent)
+        @self.handler.add(MessageEvent, message=AudioMessage)
         def handle_audio_message(event):
-            """處理語音訊息 - 同步版本"""
+            """處理語音訊息"""
             logger.info("🎤 收到語音訊息，開始處理...")
             logger.info(f"🎵 語音訊息ID: {event.message.id}")
             logger.info(f"👤 用戶ID: {event.source.user_id}")
@@ -119,12 +116,15 @@ class LineVoiceBot:
             
             try:
                 # 1. 先回覆處理中訊息
-                self._reply_message(event.reply_token, "🎧 正在處理您的語音訊息，請稍候...")
+                self.line_bot_api.reply_message(
+                    event.reply_token,
+                    TextSendMessage(text="🎧 正在處理您的語音訊息，請稍候...")
+                )
                 
                 # 2. 下載語音檔案
                 audio_path = self._download_audio_sync(event.message.id)
                 if not audio_path:
-                    self._send_error_message_sync(event.source.user_id, "語音檔案下載失敗")
+                    self._send_error_message(event.source.user_id, "語音檔案下載失敗")
                     return
                 
                 # 3. 使用 AutoGen 處理語音
@@ -132,9 +132,9 @@ class LineVoiceBot:
                 
                 # 4. 解析並回傳結果
                 if result:
-                    self._send_processed_result_sync(event.source.user_id, result)
+                    self._send_processed_result(event.source.user_id, result)
                 else:
-                    self._send_error_message_sync(event.source.user_id, "語音處理失敗，請重試")
+                    self._send_error_message(event.source.user_id, "語音處理失敗，請重試")
                 
                 # 5. 清理臨時檔案
                 self._cleanup_temp_file(audio_path)
@@ -143,14 +143,13 @@ class LineVoiceBot:
                 logger.error(f"❌ 處理語音訊息時發生錯誤: {e}")
                 logger.error(f"詳細錯誤: {traceback.format_exc()}")
                 try:
-                    self._send_error_message_sync(event.source.user_id, "處理過程中發生錯誤，請重試")
+                    self._send_error_message(event.source.user_id, "處理過程中發生錯誤，請重試")
                 except:
                     logger.error("❌ 無法發送錯誤訊息")
         
-        # 添加文字訊息處理器，提供使用說明
-        @self.handler.add(MessageEvent, message=TextMessageContent)
+        @self.handler.add(MessageEvent, message=TextMessage)
         def handle_text_message(event):
-            """處理文字訊息 - 提供使用說明"""
+            """處理文字訊息"""
             logger.info(f"📝 收到文字訊息: {event.message.text}")
             logger.info(f"👤 用戶ID: {event.source.user_id}")
             
@@ -159,7 +158,7 @@ class LineVoiceBot:
 
 ✨ 功能：
 • 語音轉文字
-• AutoGen 三重 Agent 優化
+• AutoGen 三重 Agent 優化  
 • 繁體中文輸出
 
 📱 使用方法：
@@ -170,29 +169,20 @@ class LineVoiceBot:
 
 ⚠️ 注意：目前只支援語音訊息處理"""
                 
-                self._reply_message(event.reply_token, help_text)
+                self.line_bot_api.reply_message(
+                    event.reply_token,
+                    TextSendMessage(text=help_text)
+                )
                 
             except Exception as e:
                 logger.error(f"❌ 處理文字訊息失敗: {e}")
-        
-        # 添加其他類型訊息的處理器
-        @self.handler.add(MessageEvent)
-        def handle_other_messages(event):
-            """處理其他類型訊息"""
-            # 只處理非語音、非文字的訊息
-            if not isinstance(event.message, (AudioMessageContent, TextMessageContent)):
-                logger.info(f"📩 收到其他類型訊息: {type(event.message).__name__}")
-                try:
-                    self._reply_message(event.reply_token, "抱歉，我只能處理語音訊息 🎤\n\n請發送語音訊息讓我為您轉換文字！")
-                except Exception as e:
-                    logger.error(f"❌ 回覆其他訊息失敗: {e}")
     
     def _download_audio_sync(self, message_id: str) -> Optional[str]:
-        """同步下載語音檔案"""
+        """同步下載語音檔案 (舊版SDK)"""
         try:
             logger.info(f"📥 開始下載語音檔案: {message_id}")
             
-            # 使用 LINE Bot API 取得語音內容
+            # 使用舊版 LINE Bot API 取得語音內容
             message_content = self.line_bot_api.get_message_content(message_id)
             
             # 建立臨時檔案
@@ -236,22 +226,8 @@ class LineVoiceBot:
             logger.error(f"詳細錯誤: {traceback.format_exc()}")
             return None
     
-    def _reply_message(self, reply_token: str, text: str):
-        """回覆訊息"""
-        try:
-            message = TextMessage(text=text)
-            request_obj = ReplyMessageRequest(
-                reply_token=reply_token,
-                messages=[message]
-            )
-            self.line_bot_api.reply_message(request_obj)
-            logger.info(f"✅ 已回覆訊息: {text[:50]}...")
-            
-        except Exception as e:
-            logger.error(f"❌ 回覆訊息失敗: {e}")
-    
-    def _send_processed_result_sync(self, user_id: str, result: str):
-        """同步發送處理結果"""
+    def _send_processed_result(self, user_id: str, result: str):
+        """發送處理結果 (舊版SDK)"""
         try:
             # 解析 AutoGen 結果
             original_text = ""
@@ -276,13 +252,11 @@ class LineVoiceBot:
             else:
                 response_text += "❌ 無法處理您的語音內容"
             
-            # 推送訊息給用戶
-            message = TextMessage(text=response_text)
-            request_obj = PushMessageRequest(
-                to=user_id,
-                messages=[message]
+            # 推送訊息給用戶 (舊版SDK)
+            self.line_bot_api.push_message(
+                user_id,
+                TextSendMessage(text=response_text)
             )
-            self.line_bot_api.push_message(request_obj)
             
             logger.info(f"✅ 已發送處理結果給用戶: {user_id}")
             
@@ -290,16 +264,15 @@ class LineVoiceBot:
             logger.error(f"❌ 發送處理結果失敗: {e}")
             logger.error(f"詳細錯誤: {traceback.format_exc()}")
     
-    def _send_error_message_sync(self, user_id: str, error_msg: str):
-        """同步發送錯誤訊息"""
+    def _send_error_message(self, user_id: str, error_msg: str):
+        """發送錯誤訊息 (舊版SDK)"""
         try:
             response_text = f"❌ {error_msg}\n\n請重新發送語音訊息，或聯絡客服協助。"
-            message = TextMessage(text=response_text)
-            request_obj = PushMessageRequest(
-                to=user_id,
-                messages=[message]
+            
+            self.line_bot_api.push_message(
+                user_id,
+                TextSendMessage(text=response_text)
             )
-            self.line_bot_api.push_message(request_obj)
             
             logger.info(f"✅ 已發送錯誤訊息給用戶: {user_id}")
             
