@@ -211,7 +211,7 @@ class AutoGenVoiceBot:
                         line_bot_api.reply_message(
                             ReplyMessageRequest(
                                 reply_token=event.reply_token,
-                                messages=[TextMessage(text=f"📝 文字優化結果：\n{result}")]
+                                messages=[TextMessage(text=result)]
                             )
                         )
                 
@@ -263,9 +263,8 @@ class AutoGenVoiceBot:
     def _send_result(self, user_id: str, result: dict):
         """發送處理結果"""
         try:
-            response_text = "✨ 語音轉文字完成\n\n"
-            response_text += f"🎯 原始文字：\n{result['original_text']}\n\n"
-            response_text += f"📝 AI 優化結果：\n{result['processed_text']}"
+            # 只顯示AI優化結果
+            response_text = result['processed_text']
             
             with ApiClient(self.configuration) as api_client:
                 line_bot_api = MessagingApi(api_client)
