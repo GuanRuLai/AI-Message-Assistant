@@ -264,32 +264,28 @@ class AutoGenVoiceBot:
             return "📊 暫無使用記錄"
     
     def run(self):
-        """啟動服務"""
-        port = int(os.getenv('PORT', 8000))
-        logger.info(f"🚀 AutoGen 語音助手啟動於端口 {port}")
+        """啟動 Flask 應用程式"""
+        port = int(os.environ.get('PORT', 8000))  # Railway 使用動態端口
+        host = '0.0.0.0'  # 允許外部訪問
         
-        # Railway 需要綁定到 0.0.0.0
+        logger.info(f"🚀 啟動 AutoGen 語音助手服務於 {host}:{port}")
+        
+        # 生產環境使用
         self.app.run(
-            host='0.0.0.0',
+            host=host,
             port=port,
-            debug=False,
-            threaded=True,
-            use_reloader=False
+            debug=False  # 生產環境關閉 debug
         )
 
 def main():
-    """主程式入口"""
+    """主函數"""
     try:
-        logger.info("🚀 正在啟動 AutoGen 語音助手...")
         bot = AutoGenVoiceBot()
         bot.run()
     except KeyboardInterrupt:
-        logger.info("👋 服務已停止")
+        logger.info("👋 程式已停止")
     except Exception as e:
-        logger.error(f"❌ 啟動失敗: {e}")
-        logger.error(traceback.format_exc())
-        # 確保錯誤時也能顯示基本資訊
-        import sys
+        logger.error(f"❌ 程式啟動失敗: {e}")
         sys.exit(1)
 
 if __name__ == "__main__":
