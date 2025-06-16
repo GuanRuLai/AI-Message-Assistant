@@ -307,12 +307,12 @@ class AutoGenVoiceBot:
     
     def run(self):
         """啟動 Flask 應用程式"""
-        port = int(os.environ.get('PORT', 8000))  # Railway 使用動態端口
+        port = int(os.environ.get('PORT', 8000))  # Replit 使用動態端口
         host = '0.0.0.0'  # 允許外部訪問
         
         logger.info(f"🚀 啟動 AutoGen 0.4 語音助手服務於 {host}:{port}")
         
-        # 生產環境使用
+        # Replit 環境使用
         self.app.run(
             host=host,
             port=port,

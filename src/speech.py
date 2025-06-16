@@ -27,43 +27,73 @@ class SpeechProcessor:
     def _initialize_client(self):
         """初始化 Google Cloud Speech-to-Text 客戶端"""
         try:
-            # 方法1: 檢查是否有 JSON 格式的認證資訊
+            # 除錯：顯示所有相關環境變數
+            logger.info("🔍 Google Cloud 認證環境變數檢查:")
+            
             credentials_json = os.getenv('GOOGLE_APPLICATION_CREDENTIALS_JSON')
+            credentials_file = os.getenv('GOOGLE_APPLICATION_CREDENTIALS')
+            
+            logger.info(f"  - GOOGLE_APPLICATION_CREDENTIALS_JSON: {'已設定' if credentials_json else '未設定'}")
+            if credentials_json:
+                logger.info(f"    * 長度: {len(credentials_json)} 字元")
+                logger.info(f"    * 開頭: {credentials_json[:50]}...")
+                logger.info(f"    * 結尾: ...{credentials_json[-50:]}")
+            
+            logger.info(f"  - GOOGLE_APPLICATION_CREDENTIALS: {'已設定' if credentials_file else '未設定'}")
+            if credentials_file:
+                logger.info(f"    * 內容: {credentials_file[:100]}...")
+                logger.info(f"    * 檔案存在: {os.path.exists(credentials_file)}")
+            
+            # 方法1: 檢查是否有 JSON 格式的認證資訊
             if credentials_json:
                 try:
                     import json
                     from google.oauth2 import service_account
                     
+                    logger.info("🔄 嘗試解析 JSON 認證...")
                     credentials_dict = json.loads(credentials_json)
+                    logger.info(f"✅ JSON 解析成功，包含欄位: {list(credentials_dict.keys())}")
+                    
                     credentials = service_account.Credentials.from_service_account_info(credentials_dict)
                     self.client = speech.SpeechClient(credentials=credentials)
-                    logger.info("✅ 使用 JSON 認證初始化 Google Speech 客戶端")
+                    logger.info("✅ 使用 JSON 認證初始化 Google Speech 客戶端成功")
                     return
+                except json.JSONDecodeError as e:
+                    logger.error(f"❌ JSON 格式錯誤: {e}")
                 except Exception as e:
-                    logger.warning(f"⚠️ JSON 認證失敗: {e}")
+                    logger.error(f"❌ JSON 認證失敗: {e}")
+            else:
+                logger.warning("⚠️ GOOGLE_APPLICATION_CREDENTIALS_JSON 未設定，跳過 JSON 認證")
             
             # 方法2: 檢查認證檔案路徑
-            credentials_file = os.getenv('GOOGLE_APPLICATION_CREDENTIALS')
             if credentials_file and os.path.exists(credentials_file):
                 try:
                     from google.oauth2 import service_account
+                    logger.info("🔄 嘗試使用檔案認證...")
                     credentials = service_account.Credentials.from_service_account_file(credentials_file)
                     self.client = speech.SpeechClient(credentials=credentials)
-                    logger.info("✅ 使用檔案認證初始化 Google Speech 客戶端")
+                    logger.info("✅ 使用檔案認證初始化 Google Speech 客戶端成功")
                     return
                 except Exception as e:
-                    logger.warning(f"⚠️ 檔案認證失敗: {e}")
+                    logger.error(f"❌ 檔案認證失敗: {e}")
+            else:
+                logger.warning("⚠️ 認證檔案不存在或未設定，跳過檔案認證")
             
             # 方法3: 使用預設認證（ADC）
+            logger.info("🔄 嘗試使用預設認證（ADC）...")
             try:
                 self.client = speech.SpeechClient()
-                logger.info("✅ 使用預設認證初始化 Google Speech 客戶端")
+                logger.info("✅ 使用預設認證初始化 Google Speech 客戶端成功")
                 return
             except Exception as e:
-                logger.warning(f"⚠️ 預設認證失敗: {e}")
+                logger.error(f"❌ 預設認證失敗: {e}")
             
             # 如果所有方法都失敗，設為 None 但不中斷程式
-            logger.warning("⚠️ 所有 Google Cloud 認證方法都失敗，語音轉文字功能將不可用")
+            logger.error("❌ 所有 Google Cloud 認證方法都失敗，語音轉文字功能將不可用")
+            logger.error("💡 請檢查 Railway 環境變數設定:")
+            logger.error("   1. 確認變數名稱是 GOOGLE_APPLICATION_CREDENTIALS_JSON")
+            logger.error("   2. 確認 JSON 格式正確且壓縮成一行")
+            logger.error("   3. 刪除 GOOGLE_APPLICATION_CREDENTIALS 變數（如果有的話）")
             self.client = None
                 
         except Exception as e:
