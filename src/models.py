@@ -150,18 +150,23 @@ class AutoGenProcessor:
             logger.info("🚀 開始 AutoGen 0.4 協作處理（2個Agent）")
             logger.info(f"📝 原始文字: {text}")
             
-            # 使用 AutoGen 0.4 進行協作處理
-            task = f"請處理以下文字：{text}"
-            
-            # 運行團隊協作
+            # 嘗試使用簡化的直接處理方式
             try:
-                # 在同步函數中運行異步協作
-                result = asyncio.run(self._run_team_collaboration(task))
+                result = asyncio.run(self._simple_agent_processing(text))
                 logger.info(f"✅ AutoGen 0.4 處理完成: {result}")
                 return result
             except Exception as e:
-                logger.error(f"❌ AutoGen 0.4 協作失敗: {e}")
-                return self._fallback_processing(text)
+                logger.warning(f"⚠️ 簡化處理失敗，嘗試團隊協作: {e}")
+                
+                # 如果簡化處理失敗，嘗試團隊協作
+                try:
+                    task = f"請處理以下文字：{text}"
+                    result = asyncio.run(self._run_team_collaboration(task))
+                    logger.info(f"✅ AutoGen 0.4 團隊協作完成: {result}")
+                    return result
+                except Exception as e2:
+                    logger.error(f"❌ AutoGen 0.4 協作失敗: {e2}")
+                    return self._fallback_processing(text)
             
         except Exception as e:
             logger.error(f"❌ AutoGen 處理失敗: {e}")
@@ -172,15 +177,23 @@ class AutoGenProcessor:
         try:
             # 使用 AutoGen 0.4 的正確協作方式
             from autogen_core import CancellationToken
+            import asyncio
             
-            # 創建取消令牌
+            # 創建取消令牌，設定超時時間
             cancellation_token = CancellationToken()
             
-            # 運行團隊協作（RoundRobin會自動讓每個Agent執行一次）
-            result = await self.team.run(
-                task=task,
-                cancellation_token=cancellation_token
-            )
+            # 運行團隊協作，設定超時防止卡住
+            try:
+                result = await asyncio.wait_for(
+                    self.team.run(
+                        task=task,
+                        cancellation_token=cancellation_token
+                    ),
+                    timeout=30.0  # 30秒超時
+                )
+            except asyncio.TimeoutError:
+                logger.error("❌ AutoGen 協作超時，使用備用處理")
+                raise Exception("AutoGen collaboration timeout")
             
             # 提取最終結果
             if hasattr(result, 'messages') and result.messages:
@@ -195,6 +208,50 @@ class AutoGenProcessor:
                 
         except Exception as e:
             logger.error(f"❌ 團隊協作運行失敗: {e}")
+            raise
+    
+    async def _simple_agent_processing(self, text: str) -> str:
+        """簡化的Agent處理（直接調用Agent而不使用團隊協作）"""
+        try:
+            from autogen_core import CancellationToken
+            from autogen_agentchat.messages import TextMessage
+            import asyncio
+            
+            cancellation_token = CancellationToken()
+            
+            # 第一步：內容優化
+            logger.info("🔧 步驟1: 內容優化")
+            optimizer_response = await asyncio.wait_for(
+                self.optimizer_agent.on_messages(
+                    [TextMessage(content=text, source="user")], 
+                    cancellation_token
+                ),
+                timeout=15.0
+            )
+            
+            optimized_text = optimizer_response.chat_message.content
+            logger.info(f"✅ 優化完成: {optimized_text}")
+            
+            # 第二步：繁體中文轉換
+            logger.info("🔧 步驟2: 繁體中文轉換")
+            traditional_response = await asyncio.wait_for(
+                self.traditional_agent.on_messages(
+                    [TextMessage(content=optimized_text, source="optimizer")], 
+                    cancellation_token
+                ),
+                timeout=15.0
+            )
+            
+            final_text = traditional_response.chat_message.content
+            logger.info(f"✅ 轉換完成: {final_text}")
+            
+            return final_text
+            
+        except asyncio.TimeoutError:
+            logger.error("❌ 簡化處理超時")
+            raise Exception("Simple agent processing timeout")
+        except Exception as e:
+            logger.error(f"❌ 簡化處理失敗: {e}")
             raise
     
     def _fallback_processing(self, text: str) -> str:
