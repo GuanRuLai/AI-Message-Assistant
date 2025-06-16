@@ -1,6 +1,7 @@
 """
 🤖 AutoGen 0.4 語音助手 - 主程式
 支援最新的 AutoGen AgentChat 和 LINE Bot SDK v3
+本地開發版本 - 使用 ngrok 進行測試
 """
 
 import os
@@ -30,8 +31,8 @@ from src.speech import SpeechProcessor
 from src.models import AutoGenProcessor
 from src.storage import UserStorage
 
-# 載入環境變數 - 優先使用 Railway 平台環境變數
-load_dotenv('config.env', override=False)  # 不覆蓋已存在的環境變數
+# 載入環境變數
+load_dotenv('config.env')
 
 class AutoGenVoiceBot:
     def __init__(self):
@@ -344,17 +345,17 @@ class AutoGenVoiceBot:
             return "📊 暫無使用記錄"
     
     def run(self):
-        """啟動 Flask 應用程式"""
-        port = int(os.environ.get('PORT', 8000))  # Railway 使用動態端口
-        host = '0.0.0.0'  # 允許外部訪問
+        """啟動 Flask 應用程式 - 本地開發模式"""
+        port = int(os.getenv('PORT', 5000))  # 本地開發使用 5000 port
+        logger.info(f"🚀 啟動 AutoGen 語音助手 - 本地開發模式")
+        logger.info(f"📡 伺服器運行於: http://localhost:{port}")
+        logger.info(f"🔗 Webhook 端點: http://localhost:{port}/webhook")
+        logger.info(f"💡 請使用 ngrok 建立公開 URL 並設定到 LINE Developer Console")
         
-        logger.info(f"🚀 啟動 AutoGen 0.4 語音助手服務於 {host}:{port}")
-        
-        # Railway 環境使用
         self.app.run(
-            host=host,
+            host='0.0.0.0',
             port=port,
-            debug=False  # 生產環境關閉 debug
+            debug=True  # 本地開發啟用 debug 模式
         )
 
 def main():

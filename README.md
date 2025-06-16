@@ -1,6 +1,6 @@
-# 🤖 AutoGen 語音助手
+# 🤖 AutoGen 0.4 語音助手
 
-結合 OpenAI、Google Cloud Speech-to-Text 和 AutoGen 三重 Agent 協作的個人化 AI 語音轉文字助手
+一個整合 AutoGen 0.4、LINE Bot SDK v3 和 Google Cloud Speech-to-Text 的智能語音助手。
 
 ## 📋 目錄
 
@@ -17,114 +17,125 @@
 
 AutoGen 語音助手是一個個人化的 AI 語音轉文字助手，整合了 OpenAI、Google Cloud Speech-to-Text 和 AutoGen 三重 Agent 協作系統。本專案旨在透過 LINE Bot 提供互動式且高效的語音轉文字服務，並使用多重 AI Agent 來優化文字品質，確保輸出繁體中文結果。
 
-## ✨ 功能特色
+## ✨ 主要功能
 
-- 🎤 **語音轉文字**：使用 Google Cloud Speech-to-Text API 進行高精度語音識別
-- 🤖 **AutoGen 三重 Agent 協作**：
-  - Agent 1: 語音處理專家（修正語音辨識錯誤）
-  - Agent 2: 內容優化專家（優化文字表達和結構）
-  - Agent 3: 繁體中文轉換專家（確保 100% 繁體中文輸出）
-- 📝 **智能文字優化**：自動優化語法、用詞和表達方式
-- 🇹🇼 **繁體中文輸出**：確保台灣用戶友好的文字格式
-- 📊 **用戶學習記錄**：追蹤和儲存用戶互動統計
-- ⚡ **即時處理**：快速回應用戶語音訊息
+- 🎤 **語音轉文字**：使用 Google Cloud Speech-to-Text API
+- 🤖 **AutoGen 0.4 協作**：多 Agent 智能對話系統
+- 💬 **LINE Bot 整合**：支援最新 LINE Bot SDK v3
+- 🗣️ **繁體中文支援**：專為繁體中文優化
+- 📊 **用戶記錄**：TinyDB 本地資料儲存
+
+## 🚀 本地開發設定
+
+### 1. 環境需求
+
+- Python 3.9+
+- LINE Developer Account
+- Google Cloud Platform Account
+- OpenAI API Key
+- ngrok (用於本地測試)
+
+### 2. 安裝依賴
+
+```bash
+pip install -r requirements.txt
+```
+
+### 3. 環境變數設定
+
+複製 `env.example` 為 `config.env` 並填入您的 API 金鑰：
+
+```bash
+cp env.example config.env
+```
+
+編輯 `config.env`：
+
+```env
+# OpenAI API
+OPENAI_API_KEY=your_openai_api_key
+
+# LINE Bot
+LINE_CHANNEL_SECRET=your_line_channel_secret
+LINE_CHANNEL_ACCESS_TOKEN=your_line_channel_access_token
+
+# Google Cloud (JSON 格式)
+GOOGLE_APPLICATION_CREDENTIALS_JSON={"type":"service_account",...}
+```
+
+### 4. 使用 ngrok 進行本地測試
+
+1. **安裝 ngrok**：
+   ```bash
+   # 下載並安裝 ngrok
+   # https://ngrok.com/download
+   ```
+
+2. **啟動應用程式**：
+   ```bash
+   python main.py
+   ```
+
+3. **在另一個終端啟動 ngrok**：
+   ```bash
+   ngrok http 5000
+   ```
+
+4. **設定 LINE Webhook**：
+   - 複製 ngrok 提供的 HTTPS URL (例如：`https://abc123.ngrok.io`)
+   - 在 LINE Developer Console 設定 Webhook URL：`https://abc123.ngrok.io/webhook`
+
+### 5. 測試功能
+
+- 📱 **健康檢查**：`https://your-ngrok-url.ngrok.io/health`
+- 🔍 **環境變數檢查**：`https://your-ngrok-url.ngrok.io/env-check`
+- 🏠 **首頁**：`https://your-ngrok-url.ngrok.io/`
 
 ## 📁 專案結構
 
 ```
 AutoGen/
-├── src/                             # 核心模組目錄
-│   ├── audio.py                     # 音頻處理模組
-│   ├── speech.py                    # 語音轉文字模組
-│   ├── models.py                    # AutoGen 模型處理器
-│   └── storage.py                   # 用戶資料儲存模組
-├── files/                           # 臨時檔案目錄
-├── tinydb/                          # 資料庫目錄
-├── main.py                          # 主程式
-├── requirements.txt                 # 依賴套件清單
-├── config.env                       # 環境配置檔案
-└── README.md                        # 專案說明
+├── main.py                 # 主程式
+├── config.env             # 環境變數配置
+├── requirements.txt       # Python 依賴
+├── src/
+│   ├── audio.py          # 音訊處理
+│   ├── speech.py         # 語音轉文字
+│   ├── models.py         # AutoGen 處理
+│   └── storage.py        # 資料儲存
+├── files/                # 臨時檔案目錄
+└── tinydb/              # 資料庫檔案
 ```
 
-## 🔧 專案詳情
+## 🔧 技術架構
 
-- 使用虛擬環境進行開發
-- 使用的 API：
-  - OpenAI GPT-4o API
-  - Google Cloud Speech-to-Text API
-  - LINE Developer Messaging API
-- 部署平台：
-  - Railway 平台
-- 資料儲存：使用 TinyDB 進行本地資料儲存
+- **LINE Bot SDK v3.17.1**：最新 LINE Bot 開發框架
+- **AutoGen 0.4**：微軟最新 Agent 協作框架
+- **Google Cloud Speech-to-Text**：語音識別服務
+- **OpenAI GPT-4**：自然語言處理
+- **Flask**：Web 框架
+- **TinyDB**：輕量級資料庫
 
-## 🚀 安裝
+## 📝 使用說明
 
-要安裝並運行此專案，請按照以下步驟：
+1. **語音訊息**：發送語音訊息給 LINE Bot，系統會自動轉換為文字並進行 AI 處理
+2. **文字訊息**：直接發送文字訊息進行 AI 對話
+3. **指令**：
+   - `help` 或 `幫助`：顯示使用說明
+   - `status` 或 `狀態`：顯示系統狀態
 
-1. 複製專案：
-```bash
-git clone https://github.com/GuanRuLai/AI-Message-Assistant.git
-```
+## 🐛 除錯
 
-2. 進入專案目錄：
-```bash
-cd AI-Message-Assistant
-```
+如果遇到問題，請檢查：
 
-3. 安裝必要的依賴套件：
-```bash
-pip install -r requirements.txt
-```
+1. **環境變數**：訪問 `/env-check` 端點檢查設定
+2. **日誌輸出**：查看終端的詳細日誌
+3. **ngrok 連線**：確保 ngrok 正常運行
+4. **LINE Webhook**：確認 Webhook URL 設定正確
 
-4. 設定環境變數：
-複製 `env.example` 為 `config.env` 並填入您的 API 金鑰
+## 📄 授權
 
-## 📱 使用方法
-
-要啟動 AutoGen 語音助手，執行以下指令：
-
-```bash
-python main.py
-```
-
-### 🎤 LINE Bot 使用說明
-
-1. 將 LINE Bot 加為好友
-2. 發送語音訊息給 Bot
-3. Bot 會自動處理並回覆優化後的繁體中文文字
-4. 支援文字訊息優化功能
-5. 輸入「幫助」查看使用說明
-6. 輸入「狀態」查看使用統計
-
-### 📊 回應格式
-
-```
-✨ 語音轉文字完成
-
-🎯 原始文字：
-[原始語音辨識結果]
-
-📝 AI 優化結果：
-[AutoGen 三重 Agent 優化後的繁體中文]
-```
-
-## 🏗️ 系統架構
-
-```
-用戶語音訊息 
-    ↓
-LINE Webhook 接收
-    ↓
-音頻下載處理 (AudioProcessor)
-    ↓
-Google Cloud Speech-to-Text 語音轉文字 (SpeechProcessor)
-    ↓
-AutoGen 三重 Agent 協作處理 (AutoGenProcessor)
-    ↓
-用戶資料儲存 (UserStorage)
-    ↓
-回傳優化繁體中文
-```
+MIT License
 
 ## 🔑 環境需求
 
@@ -133,10 +144,6 @@ AutoGen 三重 Agent 協作處理 (AutoGenProcessor)
 - LINE Bot Channel (Channel Secret & Access Token)
 - Google Cloud Platform 帳戶和 Speech-to-Text API 啟用
 - Google Cloud 服務帳戶金鑰 (JSON 格式)
-
-## 📝 授權
-
-本專案採用 MIT 授權 - 詳見 LICENSE 檔案
 
 ## 🙏 致謝
 
