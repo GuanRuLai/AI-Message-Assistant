@@ -70,6 +70,7 @@ class LineVoiceBot:
             
             logger.info(f"📨 收到 Webhook 請求")
             logger.info(f"🔐 簽名: {signature[:20]}...")
+            logger.info(f"📄 請求內容: {body[:200]}...")  # 添加請求內容日誌
             
             try:
                 self.handler.handle(body, signature)
@@ -108,10 +109,32 @@ class LineVoiceBot:
     def _setup_handlers(self):
         """設定 LINE 訊息處理器"""
         
+        # 添加通用訊息處理器來調試所有訊息類型
+        @self.handler.add(MessageEvent)
+        def handle_all_messages(event):
+            """處理所有訊息類型 - 用於調試"""
+            logger.info(f"📩 收到訊息事件: {type(event.message).__name__}")
+            logger.info(f"📝 訊息ID: {event.message.id}")
+            logger.info(f"👤 用戶ID: {event.source.user_id}")
+            
+            # 檢查是否為語音訊息
+            if hasattr(event.message, 'type'):
+                logger.info(f"🔍 訊息類型: {event.message.type}")
+            
+            # 如果不是語音訊息，回覆提示
+            if not isinstance(event.message, AudioMessageContent):
+                logger.info(f"⚠️ 非語音訊息，類型: {type(event.message).__name__}")
+                try:
+                    self._reply_message(event.reply_token, "請發送語音訊息，我只能處理語音內容 🎤")
+                except Exception as e:
+                    logger.error(f"❌ 回覆非語音訊息失敗: {e}")
+        
         @self.handler.add(MessageEvent, message=AudioMessageContent)
         def handle_audio_message(event):
             """處理語音訊息 - 同步版本"""
             logger.info("🎤 收到語音訊息，開始處理...")
+            logger.info(f"🎵 語音訊息ID: {event.message.id}")
+            logger.info(f"⏱️ 語音時長: {getattr(event.message, 'duration', '未知')}ms")
             
             try:
                 # 1. 先回覆處理中訊息
