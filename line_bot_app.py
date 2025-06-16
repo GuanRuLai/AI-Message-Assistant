@@ -13,7 +13,7 @@ from pathlib import Path
 from flask import Flask, request, abort
 from linebot.v3 import WebhookHandler
 from linebot.v3.exceptions import InvalidSignatureError
-from linebot.v3.webhooks import MessageEvent, AudioMessageContent
+from linebot.v3.webhooks import MessageEvent, AudioMessageContent, TextMessageContent
 from linebot.v3.messaging import (
     Configuration, ApiClient, MessagingApi,
     TextMessage, ReplyMessageRequest, PushMessageRequest
@@ -109,31 +109,12 @@ class LineVoiceBot:
     def _setup_handlers(self):
         """設定 LINE 訊息處理器"""
         
-        # 添加通用訊息處理器來調試所有訊息類型
-        @self.handler.add(MessageEvent)
-        def handle_all_messages(event):
-            """處理所有訊息類型 - 用於調試"""
-            logger.info(f"📩 收到訊息事件: {type(event.message).__name__}")
-            logger.info(f"📝 訊息ID: {event.message.id}")
-            logger.info(f"👤 用戶ID: {event.source.user_id}")
-            
-            # 檢查是否為語音訊息
-            if hasattr(event.message, 'type'):
-                logger.info(f"🔍 訊息類型: {event.message.type}")
-            
-            # 如果不是語音訊息，回覆提示
-            if not isinstance(event.message, AudioMessageContent):
-                logger.info(f"⚠️ 非語音訊息，類型: {type(event.message).__name__}")
-                try:
-                    self._reply_message(event.reply_token, "請發送語音訊息，我只能處理語音內容 🎤")
-                except Exception as e:
-                    logger.error(f"❌ 回覆非語音訊息失敗: {e}")
-        
         @self.handler.add(MessageEvent, message=AudioMessageContent)
         def handle_audio_message(event):
             """處理語音訊息 - 同步版本"""
             logger.info("🎤 收到語音訊息，開始處理...")
             logger.info(f"🎵 語音訊息ID: {event.message.id}")
+            logger.info(f"👤 用戶ID: {event.source.user_id}")
             logger.info(f"⏱️ 語音時長: {getattr(event.message, 'duration', '未知')}ms")
             
             try:
@@ -165,6 +146,46 @@ class LineVoiceBot:
                     self._send_error_message_sync(event.source.user_id, "處理過程中發生錯誤，請重試")
                 except:
                     logger.error("❌ 無法發送錯誤訊息")
+        
+        # 添加文字訊息處理器，提供使用說明
+        @self.handler.add(MessageEvent, message=TextMessageContent)
+        def handle_text_message(event):
+            """處理文字訊息 - 提供使用說明"""
+            logger.info(f"📝 收到文字訊息: {event.message.text}")
+            logger.info(f"👤 用戶ID: {event.source.user_id}")
+            
+            try:
+                help_text = """🎤 語音轉文字助手使用說明
+
+✨ 功能：
+• 語音轉文字
+• AutoGen 三重 Agent 優化
+• 繁體中文輸出
+
+📱 使用方法：
+1. 點擊麥克風圖示
+2. 錄製您的語音訊息
+3. 發送語音訊息
+4. 等待 AI 處理並回覆優化結果
+
+⚠️ 注意：目前只支援語音訊息處理"""
+                
+                self._reply_message(event.reply_token, help_text)
+                
+            except Exception as e:
+                logger.error(f"❌ 處理文字訊息失敗: {e}")
+        
+        # 添加其他類型訊息的處理器
+        @self.handler.add(MessageEvent)
+        def handle_other_messages(event):
+            """處理其他類型訊息"""
+            # 只處理非語音、非文字的訊息
+            if not isinstance(event.message, (AudioMessageContent, TextMessageContent)):
+                logger.info(f"📩 收到其他類型訊息: {type(event.message).__name__}")
+                try:
+                    self._reply_message(event.reply_token, "抱歉，我只能處理語音訊息 🎤\n\n請發送語音訊息讓我為您轉換文字！")
+                except Exception as e:
+                    logger.error(f"❌ 回覆其他訊息失敗: {e}")
     
     def _download_audio_sync(self, message_id: str) -> Optional[str]:
         """同步下載語音檔案"""
