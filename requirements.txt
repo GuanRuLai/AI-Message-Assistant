@@ -11,8 +11,8 @@ line-bot-sdk==3.12.0
 # 🌐 Web 框架
 Flask==3.0.3
 
-# 🤖 AutoGen 相關 (使用穩定版本)
-pyautogen==0.2.36
+# 🤖 AutoGen 相關 (使用新的AG2包名)
+ag2[openai]==0.4.1
 
 # 🔑 OpenAI API
 openai==1.54.4

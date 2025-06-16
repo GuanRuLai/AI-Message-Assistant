@@ -12,7 +12,7 @@ from loguru import logger
 # 導入 Google Cloud Speech-to-Text 處理器
 from .google_stt_processor import GoogleSTTProcessor
 
-# AutoGen 相關 - 使用標準autogen包
+# AutoGen 相關 - 使用新的AG2包名
 from autogen import AssistantAgent, UserProxyAgent, GroupChat, GroupChatManager
 
 class AutoGenVoiceProcessor:
