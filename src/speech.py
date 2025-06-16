@@ -27,22 +27,44 @@ class SpeechProcessor:
     def _initialize_client(self):
         """初始化 Google Cloud Speech-to-Text 客戶端"""
         try:
-            # 檢查是否有 JSON 格式的認證資訊
+            # 方法1: 檢查是否有 JSON 格式的認證資訊
             credentials_json = os.getenv('GOOGLE_APPLICATION_CREDENTIALS_JSON')
             if credentials_json:
-                # 從環境變數載入 JSON 認證
-                import tempfile
-                import json
-                from google.oauth2 import service_account
-                
-                credentials_dict = json.loads(credentials_json)
-                credentials = service_account.Credentials.from_service_account_info(credentials_dict)
-                self.client = speech.SpeechClient(credentials=credentials)
-                logger.info("✅ 使用 JSON 認證初始化 Google Speech 客戶端")
-            else:
-                # 使用預設認證方式
+                try:
+                    import json
+                    from google.oauth2 import service_account
+                    
+                    credentials_dict = json.loads(credentials_json)
+                    credentials = service_account.Credentials.from_service_account_info(credentials_dict)
+                    self.client = speech.SpeechClient(credentials=credentials)
+                    logger.info("✅ 使用 JSON 認證初始化 Google Speech 客戶端")
+                    return
+                except Exception as e:
+                    logger.warning(f"⚠️ JSON 認證失敗: {e}")
+            
+            # 方法2: 檢查認證檔案路徑
+            credentials_file = os.getenv('GOOGLE_APPLICATION_CREDENTIALS')
+            if credentials_file and os.path.exists(credentials_file):
+                try:
+                    from google.oauth2 import service_account
+                    credentials = service_account.Credentials.from_service_account_file(credentials_file)
+                    self.client = speech.SpeechClient(credentials=credentials)
+                    logger.info("✅ 使用檔案認證初始化 Google Speech 客戶端")
+                    return
+                except Exception as e:
+                    logger.warning(f"⚠️ 檔案認證失敗: {e}")
+            
+            # 方法3: 使用預設認證（ADC）
+            try:
                 self.client = speech.SpeechClient()
                 logger.info("✅ 使用預設認證初始化 Google Speech 客戶端")
+                return
+            except Exception as e:
+                logger.warning(f"⚠️ 預設認證失敗: {e}")
+            
+            # 如果所有方法都失敗，設為 None 但不中斷程式
+            logger.warning("⚠️ 所有 Google Cloud 認證方法都失敗，語音轉文字功能將不可用")
+            self.client = None
                 
         except Exception as e:
             logger.error(f"❌ 初始化 Google Speech 客戶端失敗: {e}")

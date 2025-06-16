@@ -49,10 +49,20 @@ class AutoGenProcessor:
             
             model = os.getenv('AUTOGEN_MODEL', 'gpt-4o')
             
+            # 修正環境變數讀取
+            temperature_str = os.getenv('AUTOGEN_TEMPERATURE', '0.7')
+            try:
+                # 清理環境變數中可能的換行符和額外字符
+                temperature_clean = temperature_str.strip().split('=')[-1]
+                temperature = float(temperature_clean)
+            except (ValueError, IndexError):
+                logger.warning(f"⚠️ AUTOGEN_TEMPERATURE 格式錯誤: {temperature_str}，使用預設值 0.7")
+                temperature = 0.7
+            
             self.client = OpenAIChatCompletionClient(
                 model=model,
                 api_key=api_key,
-                temperature=float(os.getenv('AUTOGEN_TEMPERATURE', '0.7')),
+                temperature=temperature,
             )
             
             logger.info("✅ AutoGen 0.4 OpenAI 客戶端初始化成功")
