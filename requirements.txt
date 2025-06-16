@@ -1,6 +1,6 @@
 line-bot-sdk==3.17.1
-Flask==2.3.2
-python-dotenv==1.0.0
+Flask==3.0.0
+python-dotenv==1.0.1
 openai>=1.52.2
 google-cloud-speech==2.24.1
 tinydb==4.8.0

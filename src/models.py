@@ -12,9 +12,9 @@ try:
     from autogen_agentchat.agents import AssistantAgent
     from autogen_agentchat.teams import RoundRobinGroupChat
     from autogen_agentchat.ui import Console
-    from autogen_core.base import AgentId, AgentType
-    from autogen_ext.models import OpenAIChatCompletionClient
+    from autogen_ext.models.openai import OpenAIChatCompletionClient
     AUTOGEN_AVAILABLE = True
+    logger.info("✅ AutoGen 0.4 模組載入成功")
 except ImportError as e:
     logger.warning(f"⚠️ AutoGen 0.4 未安裝或版本不相容: {e}")
     AUTOGEN_AVAILABLE = False
@@ -30,9 +30,13 @@ class AutoGenProcessor:
         self.team = None
         
         if AUTOGEN_AVAILABLE:
-            self._initialize_client()
-            self._initialize_agents()
-            logger.info("🤖 AutoGen 0.4 處理器已初始化")
+            try:
+                self._initialize_client()
+                self._initialize_agents()
+                logger.info("🤖 AutoGen 0.4 處理器已初始化")
+            except Exception as e:
+                logger.error(f"❌ AutoGen 0.4 初始化失敗: {e}")
+                logger.warning("⚠️ 將使用基礎文字處理")
         else:
             logger.warning("⚠️ AutoGen 0.4 不可用，將使用基礎文字處理")
     
