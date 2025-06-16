@@ -12,8 +12,8 @@ from loguru import logger
 # 導入 Google Cloud Speech-to-Text 處理器
 from .google_stt_processor import GoogleSTTProcessor
 
-# AutoGen 相關 - 使用新的AG2包名
-from ag2 import AssistantAgent, UserProxyAgent, GroupChat, GroupChatManager
+# AutoGen 相關 - 使用最新的pyautogen 0.9
+from autogen import AssistantAgent, UserProxyAgent, GroupChat, GroupChatManager
 
 class AutoGenVoiceProcessor:
     def __init__(self):
@@ -26,10 +26,13 @@ class AutoGenVoiceProcessor:
         self.group_chat = None
         self.group_chat_manager = None
         
-        # 配置 - 簡化配置避免參數衝突
-        self.openai_config = {
-            "model": os.getenv('AUTOGEN_MODEL', 'gpt-4o'),
-            "api_key": os.getenv('OPENAI_API_KEY')
+        # 配置 - 使用 AutoGen 0.9 的配置格式
+        self.llm_config = {
+            "config_list": [{
+                "model": os.getenv('AUTOGEN_MODEL', 'gpt-4o'),
+                "api_key": os.getenv('OPENAI_API_KEY')
+            }],
+            "temperature": float(os.getenv('AUTOGEN_TEMPERATURE', '0.7'))
         }
         
         self._initialize_components()
@@ -58,7 +61,7 @@ class AutoGenVoiceProcessor:
 - 使用台灣常用的詞彙表達
 - 完成後直接輸出修正後的文字
 """,
-                llm_config={"config_list": [self.openai_config]}
+                llm_config=self.llm_config
             )
             
             # 建立 OptimizationAgent
@@ -80,7 +83,7 @@ class AutoGenVoiceProcessor:
 - 使用常用詞彙和自然表達
 - 完成後直接輸出優化後的文字
 """,
-                llm_config={"config_list": [self.openai_config]}
+                llm_config=self.llm_config
             )
             
             # 建立 TraditionalChineseAgent
@@ -100,7 +103,7 @@ class AutoGenVoiceProcessor:
 
 完成後直接輸出轉換後的繁體中文文字。
 """,
-                llm_config={"config_list": [self.openai_config]}
+                llm_config=self.llm_config
             )
             
             # 建立 UserProxy
@@ -153,15 +156,12 @@ class AutoGenVoiceProcessor:
                 max_round=6
             )
             
-            manager = GroupChatManager(groupchat=groupchat, llm_config={"config_list": [self.openai_config]})
+            manager = GroupChatManager(groupchat=groupchat, llm_config=self.llm_config)
             
             # 建立初始訊息
             initial_message = f"請處理以下語音轉文字結果：{text}"
             
             # 開始對話
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            
             try:
                 result = self.user_proxy.initiate_chat(
                     manager,
@@ -170,16 +170,19 @@ class AutoGenVoiceProcessor:
                 )
                 
                 # 提取最終結果
-                if result and hasattr(result, 'chat_history'):
+                if result and hasattr(result, 'chat_history') and result.chat_history:
                     final_message = result.chat_history[-1].get('content', text)
                     optimized_text = self._extract_final_text(final_message)
+                elif result and hasattr(result, 'summary'):
+                    optimized_text = self._extract_final_text(result.summary)
                 else:
                     optimized_text = text
                 
                 return f"原始文字：{text}\n優化結果：{optimized_text}"
                 
-            finally:
-                loop.close()
+            except Exception as e:
+                logger.error(f"AutoGen 對話失敗: {str(e)}")
+                return self._simple_optimize(text)
             
         except Exception as e:
             logger.error(f"AutoGen 協作失敗: {str(e)}")
