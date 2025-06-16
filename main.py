@@ -100,13 +100,20 @@ class AutoGenVoiceBot:
             """首頁"""
             return {
                 "message": "🤖 AutoGen 0.4 語音助手已啟動",
+                "status": "running",
                 "features": [
                     "語音轉文字",
                     "AutoGen 0.4 Agent 協作",
                     "繁體中文輸出",
                     "用戶學習記錄"
                 ],
-                "version": "2024.1"
+                "endpoints": {
+                    "webhook": "/webhook",
+                    "health": "/health",
+                    "home": "/"
+                },
+                "version": "2024.1",
+                "timestamp": datetime.now().isoformat()
             }, 200
     
     def _setup_handlers(self):
