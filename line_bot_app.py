@@ -297,5 +297,9 @@ def main():
         logger.error(f"❌ 啟動失敗: {e}")
         logger.error(f"詳細錯誤: {traceback.format_exc()}")
 
+# 暫時使用測試版本
 if __name__ == "__main__":
-    main() 
+    # 導入測試版本
+    from test_line_bot import app
+    port = int(os.getenv('PORT', 8000))
+    app.run(host='0.0.0.0', port=port, debug=False) 
