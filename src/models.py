@@ -11,7 +11,6 @@ from loguru import logger
 # AutoGen 0.4 imports
 try:
     from autogen_agentchat.agents import AssistantAgent
-    from autogen_agentchat.teams import RoundRobinGroupChat
     from autogen_ext.models.openai import OpenAIChatCompletionClient
     AUTOGEN_AVAILABLE = True
     logger.info("✅ AutoGen 0.4 模組載入成功")
@@ -27,7 +26,6 @@ class AutoGenProcessor:
         self.client = None
         self.optimizer_agent = None
         self.traditional_agent = None
-        self.team = None
         
         if AUTOGEN_AVAILABLE:
             try:
@@ -85,11 +83,11 @@ class AutoGenProcessor:
 
 你的任務：
 1. 接收語音轉文字的原始結果
-2. 修正語音辨識錯誤並優化內容
+2. 修正語音辨識錯誤並優化內容，特別是語句邏輯的部分需特別注意，可能前面的轉譯會有錯誤
 3. 補充遺漏的標點符號
 4. 修正同音異字錯誤
 5. 整理語句結構並提升可讀性
-6. 維持一定的人性化表達
+6. 符合公事上的用語和對答
 
 處理重點：
 - 修正語音辨識的斷句錯誤
@@ -122,12 +120,6 @@ class AutoGenProcessor:
 請直接輸出轉換後的繁體中文文字，不要加入額外說明。"""
             )
             
-            # 建立團隊協作（只有兩個Agent）
-            self.team = RoundRobinGroupChat([
-                self.optimizer_agent, 
-                self.traditional_agent
-            ])
-            
             logger.info("✅ AutoGen 0.4 Agents 初始化成功（2個Agent）")
             
         except Exception as e:
@@ -145,74 +137,29 @@ class AutoGenProcessor:
             優化後的文字
         """
         try:
-            if not AUTOGEN_AVAILABLE or not self.team:
+            if not AUTOGEN_AVAILABLE or not self.optimizer_agent or not self.traditional_agent:
                 return self._fallback_processing(text)
             
-            logger.info("🚀 開始 AutoGen 0.4 協作處理（2個Agent）")
+            logger.info("🚀 開始 AutoGen 0.4 直接處理（2個Agent）")
             logger.info(f"📝 原始文字: {text}")
             
-            # 嘗試使用簡化的直接處理方式
+            # 使用直接處理方式
             try:
-                result = asyncio.run(self._simple_agent_processing(text))
+                result = asyncio.run(self._process_with_agents(text))
                 logger.info(f"✅ AutoGen 0.4 處理完成: {result}")
                 return result
             except Exception as e:
-                logger.warning(f"⚠️ 簡化處理失敗，嘗試團隊協作: {e}")
-                
-                # 如果簡化處理失敗，嘗試團隊協作
-                try:
-                    task = f"請處理以下文字：{text}"
-                    result = asyncio.run(self._run_team_collaboration(task))
-                    logger.info(f"✅ AutoGen 0.4 團隊協作完成: {result}")
-                    return result
-                except Exception as e2:
-                    logger.error(f"❌ AutoGen 0.4 協作失敗: {e2}")
-                    return self._fallback_processing(text)
+                logger.error(f"❌ AutoGen 0.4 處理失敗: {e}")
+                return self._fallback_processing(text)
             
         except Exception as e:
             logger.error(f"❌ AutoGen 處理失敗: {e}")
             return self._fallback_processing(text)
     
-    async def _run_team_collaboration(self, task: str) -> str:
-        """運行團隊協作（簡化版本）"""
-        try:
-            # 使用 AutoGen 0.4 的正確協作方式
-            from autogen_core import CancellationToken
-            import asyncio
-            
-            # 創建取消令牌，設定超時時間
-            cancellation_token = CancellationToken()
-            
-            # 運行團隊協作，設定超時防止卡住
-            try:
-                result = await asyncio.wait_for(
-                    self.team.run(
-                        task=task,
-                        cancellation_token=cancellation_token
-                    ),
-                    timeout=30.0  # 30秒超時
-                )
-            except asyncio.TimeoutError:
-                logger.error("❌ AutoGen 協作超時，使用備用處理")
-                raise Exception("AutoGen collaboration timeout")
-            
-            # 提取最終結果
-            if hasattr(result, 'messages') and result.messages:
-                # 獲取最後一條消息的內容
-                last_message = result.messages[-1]
-                if hasattr(last_message, 'content'):
-                    return last_message.content
-                else:
-                    return str(last_message)
-            else:
-                return str(result)
-                
-        except Exception as e:
-            logger.error(f"❌ 團隊協作運行失敗: {e}")
-            raise
+
     
-    async def _simple_agent_processing(self, text: str) -> str:
-        """簡化的Agent處理（直接調用Agent而不使用團隊協作）"""
+    async def _process_with_agents(self, text: str) -> str:
+        """使用兩個Agent進行文字處理（內容優化 → 繁體中文轉換）"""
         try:
             from autogen_core import CancellationToken
             from autogen_agentchat.messages import TextMessage
@@ -249,10 +196,10 @@ class AutoGenProcessor:
             return final_text
             
         except asyncio.TimeoutError:
-            logger.error("❌ 簡化處理超時")
-            raise Exception("Simple agent processing timeout")
+            logger.error("❌ Agent 處理超時")
+            raise Exception("Agent processing timeout")
         except Exception as e:
-            logger.error(f"❌ 簡化處理失敗: {e}")
+            logger.error(f"❌ Agent 處理失敗: {e}")
             raise
     
     def _fallback_processing(self, text: str) -> str:
@@ -306,14 +253,16 @@ class AutoGenProcessor:
     
     def get_agent_info(self) -> dict:
         """獲取 Agent 資訊"""
+        agents_initialized = (self.optimizer_agent is not None and 
+                             self.traditional_agent is not None)
         return {
             'autogen_available': AUTOGEN_AVAILABLE,
-            'agents_initialized': self.team is not None,
+            'agents_initialized': agents_initialized,
             'version': '0.4.0',
             'agents': [
                 'content_optimizer', 
                 'traditional_chinese_converter'
-            ] if self.team else []
+            ] if agents_initialized else []
         }
     
     def test_agents(self) -> dict:
@@ -332,7 +281,7 @@ class AutoGenProcessor:
                 'available': True,
                 'test_input': test_text,
                 'test_output': result,
-                'agents_count': len(self.team.participants) if self.team else 0
+                'agents_count': 2 if (self.optimizer_agent and self.traditional_agent) else 0
             }
             
         except Exception as e:
